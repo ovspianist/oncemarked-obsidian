@@ -1,0 +1,33 @@
+{
+  "name": "oncemarked-obsidian",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node esbuild.config.mjs",
+    "dev": "node esbuild.config.mjs --watch",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "format": "prettier --write .",
+    "verify": "prettier --check . && pnpm typecheck && pnpm test && pnpm build",
+    "test:images": "node scripts/check-images.mjs",
+    "package": "pnpm verify && node scripts/package.mjs"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.63.0",
+    "@types/mdast": "^4.0.4",
+    "esbuild": "^0.28.2",
+    "obsidian": "^1.13.1",
+    "prettier": "^3.9.6",
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.0",
+    "yaml": "^2.9.0"
+  },
+  "dependencies": {
+    "remark-frontmatter": "^5.0.0",
+    "remark-gfm": "^4.0.1",
+    "remark-parse": "^11.0.0",
+    "unified": "^11.0.5"
+  },
+  "license": "MIT"
+}

@@ -1,0 +1,10 @@
+{
+  "id": "oncemarked",
+  "name": "OnceMarked",
+  "version": "0.1.0",
+  "minAppVersion": "1.11.4",
+  "description": "Publish notes and linked articles to your OnceMarked blog.",
+  "author": "OnceMarked",
+  "authorUrl": "https://oncemarked.com",
+  "isDesktopOnly": false
+}

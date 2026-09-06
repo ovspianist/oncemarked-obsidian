@@ -1,0 +1,36 @@
+.om-form {
+  border: 0;
+  padding: 0;
+  margin: 0;
+  min-width: 0;
+}
+.om-connection {
+  border-bottom: 1px solid var(--background-modifier-border);
+  padding-block: var(--size-4-2);
+}
+.om-source {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  max-height: 20rem;
+  overflow: auto;
+  padding: var(--size-4-2);
+  background: var(--background-secondary);
+}
+.om-error {
+  color: var(--text-error);
+}
+.om-form .setting-item-control {
+  flex-wrap: wrap;
+}
+@media (max-width: 600px) {
+  .om-form .setting-item {
+    flex-wrap: wrap;
+    gap: var(--size-4-2);
+  }
+  .om-form .setting-item-control {
+    width: 100%;
+  }
+  .om-form input[type="text"] {
+    width: 100%;
+  }
+}
