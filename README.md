@@ -29,6 +29,8 @@ To update, close Obsidian and replace only the three plugin files. Preserve `dat
 
 ## Feedback and maintenance
 
+[Join our Discord](https://discord.gg/uQAYAuDpVd) to connect with the OnceMarked community.
+
 Issues and suggestions are welcome through this repository's Issues page once available. Include your device, Obsidian/plugin versions and reproduction steps. Never include tokens or private note content.
 
 This project is maintained by its owner. **Unsolicited pull requests and external contributions are not accepted at this time.** The source is available under the MIT licence; this contribution policy does not limit the rights granted by that licence.
