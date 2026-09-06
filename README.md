@@ -4,6 +4,12 @@ Publish your Obsidian notes to your [OnceMarked](https://oncemarked.com) blog. S
 
 **Beta 0.1.0. Mobile support is not fully tested on iOS or Android.** Desktop publishing has been tested; device sync, interruption recovery and some permission/quota cases still need broader testing. Start with a test vault and keep a backup.
 
+## Account, payment and network access
+
+The plugin is free and open source. Publishing requires a OnceMarked account and blog. OnceMarked offers a Free plan; larger storage allowances and advanced features require a paid Pro plan. See [plans](https://oncemarked.com/blogs/pro).
+
+The plugin connects to your configured OnceMarked Micropub endpoint to check permissions, retrieve post source and variables, upload selected images, and create or update posts. Publishing sends the reviewed note content, metadata and selected images to OnceMarked using your blog's app token. It does not automatically publish your vault. An internet connection is required for these operations; ordinary local writing remains available offline.
+
 ## Install
 
 Requires Obsidian **1.11.4 or later** and a OnceMarked blog. This beta uses manual installation and is not yet in the Community plugins directory.
