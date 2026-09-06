@@ -76,13 +76,12 @@ export class OnceMarkedSettings extends PluginSettingTab {
     render(setting.settingEl);
   }
   private refreshSettings(): void {
-    if (typeof this.update === "function") this.update();
-    else {
-      this.containerEl.empty();
-      this.renderConnections(this.containerEl);
-      this.renderImages(this.containerEl);
-      this.renderRecovery(this.containerEl);
-    }
+    // The searchable sections are fixed; only their controls change. Re-render
+    // using the supported DOM API without requiring the newer update() API.
+    this.containerEl.empty();
+    this.renderConnections(this.containerEl);
+    this.renderImages(this.containerEl);
+    this.renderRecovery(this.containerEl);
   }
   private renderConnections(container: HTMLElement): void {
     container.createEl("p", {
