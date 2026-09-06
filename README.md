@@ -12,7 +12,9 @@ The plugin connects to your configured OnceMarked Micropub endpoint to check per
 
 ## Install
 
-Requires Obsidian **1.11.4 or later** and a OnceMarked blog. This beta uses manual installation and is not yet in the Community plugins directory.
+Requires Obsidian **1.11.4 or later** and a OnceMarked blog. Install [OnceMarked from the Community directory](https://community.obsidian.md/plugins/oncemarked), or find **OnceMarked** in **Settings → Community plugins → Browse**. Install and enable it, then follow the connection steps below (steps 4–6).
+
+For manual installation:
 
 1. Download the plugin ZIP from this repository's Releases page, or build it below.
 2. Extract `main.js`, `manifest.json` and `styles.css` into `<vault>/.obsidian/plugins/oncemarked/`.
@@ -21,7 +23,7 @@ Requires Obsidian **1.11.4 or later** and a OnceMarked blog. This beta uses manu
 5. In **Obsidian → Settings → OnceMarked**, add a blog using `https://oncemarked.com/micropub`. Select **Link → Add secret** to store its token in Obsidian Keychain. Each blog needs its own token.
 6. Select **Test connection**, then **Refresh variables**.
 
-Mobile requires the same files in the mobile vault and a configured token on that device; installation and publishing there are not fully tested.
+Mobile requires the plugin and a configured token on that device; installation and publishing there are not fully tested.
 
 ## Use
 
@@ -31,7 +33,7 @@ Links to known published notes become working blog links. Unpublished or unresol
 
 Image optimisation is configured globally and preserves originals. Defaults are **1600px / quality 80**. Larger sizes and custom quality require OnceMarked Pro. Local JPEG, PNG and still WebP are supported, up to 12 MiB and 40 megapixels; convert HEIC or animated images first. Insert variables with the command or by typing `{{`.
 
-To update, close Obsidian and replace only the three plugin files. Preserve `data.json` and note properties. For interrupted operations, check the website before using **Recover pending request** or clearing recovery data. Avoid simultaneous publishing from multiple devices during the beta.
+Update through **Settings → Community plugins**. For manual installations, close Obsidian and replace only the three plugin files. Preserve `data.json` and note properties. For interrupted operations, check the website before using **Recover pending request** or clearing recovery data. Avoid simultaneous publishing from multiple devices during the beta.
 
 ## Feedback and maintenance
 
