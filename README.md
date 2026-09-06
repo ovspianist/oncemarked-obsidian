@@ -2,7 +2,7 @@
 
 Publish your Obsidian notes to your [OnceMarked](https://oncemarked.com) blog. Save drafts, publish updates, turn links to published notes into blog links, compress images, and insert OnceMarked variables.
 
-**Beta 0.1.0. Mobile support is not fully tested on iOS or Android.** Desktop publishing has been tested; device sync, interruption recovery and some permission/quota cases still need broader testing. Start with a test vault and keep a backup.
+**Early release 0.1.1. Mobile support is not fully tested on iOS or Android.** Desktop publishing has been tested; device sync, interruption recovery and some permission/quota cases still need broader testing. Start with a test vault and keep a backup.
 
 ## Account, payment and network access
 
@@ -14,7 +14,7 @@ The plugin connects to your configured OnceMarked Micropub endpoint to check per
 
 Requires Obsidian **1.11.4 or later** and a OnceMarked blog. This beta uses manual installation and is not yet in the Community plugins directory.
 
-1. Download the plugin ZIP from this repository's Releases page once available, or build it below.
+1. Download the plugin ZIP from this repository's Releases page, or build it below.
 2. Extract `main.js`, `manifest.json` and `styles.css` into `<vault>/.obsidian/plugins/oncemarked/`.
 3. Reload Obsidian and enable **OnceMarked** in **Settings → Community plugins**.
 4. In your OnceMarked blog's **Settings → Apps**, create a token with **Create drafts**, **Edit posts**, **Read post source** and **Upload images**. Add **Publish and edit live posts** for public publishing.

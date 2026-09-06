@@ -54,11 +54,14 @@ export class NoteRepository {
       return current.meta;
     }
     const meta = newMeta();
-    await this.app.fileManager.processFrontMatter(file, (props) => {
-      if (props.oncemarked !== undefined)
-        throw new Error("Note identity changed. Open publishing again.");
-      props.oncemarked = meta;
-    });
+    await this.app.fileManager.processFrontMatter(
+      file,
+      (props: Record<string, unknown>) => {
+        if (props.oncemarked !== undefined)
+          throw new Error("Note identity changed. Open publishing again.");
+        props.oncemarked = meta;
+      },
+    );
     await this.remember(file, meta);
     return meta;
   }
@@ -69,14 +72,17 @@ export class NoteRepository {
   ): Promise<NoteMeta> {
     await this.assertUnique(file, id);
     let updated: NoteMeta | undefined;
-    await this.app.fileManager.processFrontMatter(file, (props) => {
-      const meta = readMeta(props.oncemarked);
-      if (!meta || meta.id !== id)
-        throw new Error("Note identity changed. Reopen publishing.");
-      update(meta);
-      props.oncemarked = meta;
-      updated = meta;
-    });
+    await this.app.fileManager.processFrontMatter(
+      file,
+      (props: Record<string, unknown>) => {
+        const meta = readMeta(props.oncemarked);
+        if (!meta || meta.id !== id)
+          throw new Error("Note identity changed. Reopen publishing.");
+        update(meta);
+        props.oncemarked = meta;
+        updated = meta;
+      },
+    );
     if (!updated) throw new Error("Could not save OnceMarked note properties.");
     await this.remember(file, updated);
     return updated;
@@ -106,9 +112,12 @@ export class NoteRepository {
     const current = await this.read(file);
     if (current.meta && Object.keys(current.meta.pending).length)
       throw new Error("Reconcile pending requests before changing identity.");
-    await this.app.fileManager.processFrontMatter(file, (props) => {
-      props.oncemarked = newMeta();
-    });
+    await this.app.fileManager.processFrontMatter(
+      file,
+      (props: Record<string, unknown>) => {
+        props.oncemarked = newMeta();
+      },
+    );
     const after = await this.read(file);
     if (after.meta) await this.remember(file, after.meta);
   }

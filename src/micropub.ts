@@ -141,7 +141,7 @@ export class MicropubClient {
       typeof options.maxQuality === "number"
         ? {
             imageOptions: {
-              sizes: options.sizes as number[],
+              sizes: options.sizes,
               minQuality: options.minQuality,
               maxQuality: options.maxQuality,
             },

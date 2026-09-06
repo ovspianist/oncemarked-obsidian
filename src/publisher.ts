@@ -14,7 +14,6 @@ import {
   propertiesFor,
   sourceFingerprint,
   type BlogConnection,
-  type NoteMeta,
   type SavedData,
   type Binding,
 } from "./model";
@@ -45,7 +44,7 @@ export interface Review {
   blogId: string;
 }
 const textProperty = (data: Properties, key: string): string =>
-  typeof data[key]?.[0] === "string" ? (data[key][0] as string) : "";
+  typeof data[key]?.[0] === "string" ? data[key][0] : "";
 
 export class Publisher {
   private readonly busy = new Set<string>();

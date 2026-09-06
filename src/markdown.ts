@@ -16,7 +16,7 @@ const plain = (node: Node): string =>
       : "";
 function walk(node: Node, visit: (node: Node) => boolean | void): void {
   if (visit(node) !== false && "children" in node)
-    for (const child of node.children) walk(child as Node, visit);
+    for (const child of node.children) walk(child, visit);
 }
 export function headingId(title: string, seen: Map<string, number>): string {
   const base =
@@ -103,7 +103,7 @@ export function variableTrigger(
   let insideComment = false;
   for (const comment of before.matchAll(/%%/g)) {
     if (
-      !protectedPosition(source, comment.index!) &&
+      !protectedPosition(source, comment.index) &&
       !((/\\*$/.exec(before.slice(0, comment.index))?.[0].length ?? 0) % 2)
     )
       insideComment = !insideComment;
@@ -304,7 +304,7 @@ export async function prepareMarkdown(
     }
   });
   for (const match of source.matchAll(/(!?)\[\[([^\]\n]+)\]\]/g)) {
-    const from = match.index!;
+    const from = match.index;
     const to = from + match[0].length;
     if (
       protectedRanges.some(([a, b]) => from < b && to > a) ||

@@ -9,7 +9,12 @@ import {
 import { VARIABLES, type Variable } from "./variables";
 import { normaliseImageSettings } from "./images";
 import { MicropubClient } from "./micropub";
-import { defaultSettings, type SavedData, type BlogConnection } from "./model";
+import {
+  defaultSettings,
+  readMeta,
+  type SavedData,
+  type BlogConnection,
+} from "./model";
 import { NoteRepository } from "./repository";
 import { Publisher } from "./publisher";
 import { OnceMarkedSettings } from "./settings";
@@ -36,7 +41,9 @@ export default class OnceMarkedPlugin extends Plugin {
   variableCatalogue(): readonly Variable[] {
     const file = this.app.workspace.getActiveFile();
     const meta = file
-      ? this.app.metadataCache.getFileCache(file)?.frontmatter?.oncemarked
+      ? readMeta(
+          this.app.metadataCache.getFileCache(file)?.frontmatter?.oncemarked,
+        )
       : undefined;
     const id = meta?.lastBlog ?? this.data.settings.defaultBlog;
     return (
