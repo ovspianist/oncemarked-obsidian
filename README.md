@@ -2,7 +2,7 @@
 
 Publish your Obsidian notes to your [OnceMarked](https://oncemarked.com) blog. Save drafts, publish updates, turn links to published notes into blog links, compress images, and insert OnceMarked variables.
 
-**Early release 0.1.1. Mobile support is not fully tested on iOS or Android.** Desktop publishing has been tested; device sync, interruption recovery and some permission/quota cases still need broader testing. Start with a test vault and keep a backup.
+**Early release 0.1.2. Mobile support is not fully tested on iOS or Android.** Desktop publishing has been tested; device sync, interruption recovery and some permission/quota cases still need broader testing. Start with a test vault and keep a backup.
 
 ## Account, payment and network access
 
@@ -42,6 +42,9 @@ Update through **Settings → Community plugins**. For manual installations, clo
 Issues and suggestions are welcome through this repository's Issues page once available. Include your device, Obsidian/plugin versions and reproduction steps. Never include tokens or private note content.
 
 This project is maintained by its owner. **Unsolicited pull requests and external contributions are not accepted at this time.** The source is available under the MIT licence; this contribution policy does not limit the rights granted by that licence.
+
+This public repository is the source of truth for ongoing development and releases.
+The earlier private repository is an archive, not an upstream export source.
 
 See [contribution and testing guidelines](CONTRIBUTING.md). The plugin enumerates
 vault paths locally to resolve note links. Base64 encoding preserves binary image
