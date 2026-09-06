@@ -16,8 +16,8 @@ Requires Obsidian **1.11.4 or later** and a OnceMarked blog. Install [OnceMarked
 
 For manual installation:
 
-1. Download the plugin ZIP from this repository's Releases page, or build it below.
-2. Extract `main.js`, `manifest.json` and `styles.css` into `<vault>/.obsidian/plugins/oncemarked/`.
+1. Download `main.js`, `manifest.json` and `styles.css` from this repository's Releases page, or build them below.
+2. Place the three files into `<vault>/.obsidian/plugins/oncemarked/`.
 3. Reload Obsidian and enable **OnceMarked** in **Settings → Community plugins**.
 4. In your OnceMarked blog's **Settings → Apps**, create a token with **Create drafts**, **Edit posts**, **Read post source** and **Upload images**. Add **Publish and edit live posts** for public publishing.
 5. In **Obsidian → Settings → OnceMarked**, add a blog using `https://oncemarked.com/micropub`. Select **Link → Add secret** to store its token in Obsidian Keychain. Each blog needs its own token.
@@ -43,6 +43,10 @@ Issues and suggestions are welcome through this repository's Issues page once av
 
 This project is maintained by its owner. **Unsolicited pull requests and external contributions are not accepted at this time.** The source is available under the MIT licence; this contribution policy does not limit the rights granted by that licence.
 
+See [contribution and testing guidelines](CONTRIBUTING.md). The plugin enumerates
+vault paths locally to resolve note links. Base64 encoding preserves binary image
+payloads for interrupted-upload recovery; it is not code obfuscation.
+
 ## Build
 
 Use Node.js 24 and pnpm 10.
@@ -53,5 +57,10 @@ pnpm package
 ```
 
 The ZIP is created in `artifacts/`. Packaging runs formatting, type checks, tests and the browser-targeted build. Optional image checks: `pnpm test:images` (requires Chrome).
+
+Tagged releases are built and attested in GitHub Actions. Only the three installable
+plugin files are attached to new releases; documentation and licences remain in
+the repository and local ZIP. Verify downloaded assets with `gh attestation verify
+main.js --repo ovspianist/oncemarked-obsidian` (and likewise for `styles.css`).
 
 MIT licensed. See `LICENSE` and `THIRD-PARTY-NOTICES.txt`.

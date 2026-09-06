@@ -301,7 +301,7 @@ export default class OnceMarkedPlugin extends Plugin {
     });
   }
   private showSaved(url: string): void {
-    const fragment = document.createDocumentFragment();
+    const fragment = createFragment();
     fragment.createEl("a", {
       text: "Open in OnceMarked",
       href: url,

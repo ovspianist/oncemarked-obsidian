@@ -13,6 +13,10 @@ const browser = await chromium.launch({ channel: "chrome", headless: true });
 try {
   const page = await browser.newPage();
   await page.goto("about:blank");
+  // Obsidian supplies this DOM helper; reproduce its canvas behavior in Chrome.
+  await page.evaluate(() => {
+    window.createEl = (tag) => document.createElement(tag);
+  });
   await page.addScriptTag({ content: bundle.outputFiles[0].text });
   const result = await page.evaluate(async () => {
     const canvas = document.createElement("canvas");

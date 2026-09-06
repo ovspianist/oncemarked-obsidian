@@ -229,7 +229,7 @@ export async function prepareMarkdown(
   async function resolveImage(target: string, alt: string): Promise<string> {
     try {
       const url = await options.image(target);
-      return `![${alt.replace(/[\[\]\\\r\n]/g, " ")}](${url})`;
+      return `![${alt.replace(/[[\]\\\r\n]/g, " ")}](${url})`;
     } catch (error) {
       issues.push(
         error instanceof Error ? error.message : "Image could not be prepared.",
@@ -349,7 +349,7 @@ export function replaceImagePaths(
       patches.push({
         from: start(node),
         to: end(node),
-        text: `![${(node.alt ?? "").replace(/[\[\]\\\r\n]/g, " ")}](${replacements.get(node.url)!})`,
+        text: `![${(node.alt ?? "").replace(/[[\]\\\r\n]/g, " ")}](${replacements.get(node.url)!})`,
       });
   });
   let result = source;

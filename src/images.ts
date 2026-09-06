@@ -122,7 +122,7 @@ export async function optimiseImage(
     throw new Error("Check global image optimisation settings.");
   const source = URL.createObjectURL(new Blob([buffer], { type: mime }));
   const image = new Image();
-  const canvas = document.createElement("canvas");
+  const canvas = createEl("canvas");
   try {
     image.src = source;
     await image.decode();

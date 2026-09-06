@@ -7,6 +7,7 @@ import {
   type ToggleComponent,
   type DropdownComponent,
   type SliderComponent,
+  type SettingDefinitionRender,
 } from "obsidian";
 import { IMAGE_SIZES } from "./images";
 import { defaultSettings } from "./model";
@@ -20,13 +21,76 @@ export class OnceMarkedSettings extends PluginSettingTab {
     super(app, plugin);
   }
   display(): void {
+    // Compatibility fallback for Obsidian 1.11–1.12. Newer hosts use definitions.
     this.containerEl.empty();
-    this.containerEl.createEl("p", {
+    this.renderConnections(this.containerEl);
+    this.renderImages(this.containerEl);
+    this.renderRecovery(this.containerEl);
+  }
+  getSettingDefinitions(): SettingDefinitionRender[] {
+    return [
+      {
+        name: "Blog connections",
+        aliases: [
+          "Micropub endpoint",
+          "App token",
+          "Default blog",
+          "Refresh variables",
+          "Test connection",
+          "Add blog",
+          "Remove blog",
+          "Restore blog",
+        ],
+        render: (setting) =>
+          this.renderSection(setting, (el) => this.renderConnections(el)),
+      },
+      {
+        name: "Image optimisation",
+        aliases: [
+          "Optimise images before upload",
+          "Maximum image edge",
+          "Image quality",
+          "Compression",
+          "Resize",
+        ],
+        render: (setting) =>
+          this.renderSection(setting, (el) => this.renderImages(el)),
+      },
+      {
+        name: "Image upload recovery",
+        aliases: ["Pending image uploads", "Clear recovery data"],
+        visible: () =>
+          Object.values(this.plugin.data.media).some((record) => !record.url),
+        render: (setting) =>
+          this.renderSection(setting, (el) => this.renderRecovery(el)),
+      },
+    ];
+  }
+  private renderSection(
+    setting: Setting,
+    render: (el: HTMLElement) => void,
+  ): void {
+    // This definition contains several related controls, not a single flex row.
+    setting.settingEl.empty();
+    setting.settingEl.removeClass("setting-item");
+    render(setting.settingEl);
+  }
+  private refreshSettings(): void {
+    if (typeof this.update === "function") this.update();
+    else {
+      this.containerEl.empty();
+      this.renderConnections(this.containerEl);
+      this.renderImages(this.containerEl);
+      this.renderRecovery(this.containerEl);
+    }
+  }
+  private renderConnections(container: HTMLElement): void {
+    container.createEl("p", {
       text: "Create a separate app token for each blog in OnceMarked → Settings → Apps. Enable create, update, read and media; also enable publish to publish or change live articles.",
     });
     const settings = this.plugin.data.settings;
     for (const blog of settings.blogs) {
-      const section = this.containerEl.createDiv({ cls: "om-connection" });
+      const section = container.createDiv({ cls: "om-connection" });
       new Setting(section).setName("Blog name").addText((text) =>
         text.setValue(blog.name).onChange(async (value) => {
           blog.name = value;
@@ -99,13 +163,13 @@ export class OnceMarkedSettings extends PluginSettingTab {
                 if (settings.defaultBlog === blog.id)
                   settings.defaultBlog = settings.blogs[0]?.id ?? "";
                 await this.plugin.save();
-                this.display();
+                this.refreshSettings();
               },
             ).open(),
           ),
         );
     }
-    new Setting(this.containerEl).addButton((button) =>
+    new Setting(container).addButton((button) =>
       button.setButtonText("Add blog").onClick(async () => {
         const blog = {
           id: crypto.randomUUID(),
@@ -116,11 +180,11 @@ export class OnceMarkedSettings extends PluginSettingTab {
         settings.blogs.push(blog);
         if (!settings.defaultBlog) settings.defaultBlog = blog.id;
         await this.plugin.save();
-        this.display();
+        this.refreshSettings();
       }),
     );
     for (const removed of settings.removedBlogs ?? [])
-      new Setting(this.containerEl)
+      new Setting(container)
         .setName(`Removed blog: ${removed.name}`)
         .addButton((button) =>
           button.setButtonText("Restore blog").onClick(async () => {
@@ -130,30 +194,31 @@ export class OnceMarkedSettings extends PluginSettingTab {
             );
             if (!settings.defaultBlog) settings.defaultBlog = removed.id;
             await this.plugin.save();
-            this.display();
+            this.refreshSettings();
           }),
         );
     if (settings.blogs.length)
-      new Setting(this.containerEl)
-        .setName("Default blog")
-        .addDropdown((drop) =>
-          drop
-            .addOptions(
-              Object.fromEntries(
-                settings.blogs.map((blog) => [blog.id, blog.name]),
-              ),
-            )
-            .setValue(settings.defaultBlog)
-            .onChange(async (value) => {
-              settings.defaultBlog = value;
-              await this.plugin.save();
-            }),
-        );
+      new Setting(container).setName("Default blog").addDropdown((drop) =>
+        drop
+          .addOptions(
+            Object.fromEntries(
+              settings.blogs.map((blog) => [blog.id, blog.name]),
+            ),
+          )
+          .setValue(settings.defaultBlog)
+          .onChange(async (value) => {
+            settings.defaultBlog = value;
+            await this.plugin.save();
+          }),
+      );
+  }
+  private renderImages(container: HTMLElement): void {
+    const settings = this.plugin.data.settings;
     const imageDefaults = defaultSettings().images;
     let optimisation: ToggleComponent;
     let maximumEdge: DropdownComponent;
     let quality: SliderComponent;
-    new Setting(this.containerEl)
+    new Setting(container)
       .setName("Optimise images before upload")
       .setDesc(
         "Resize and compress new uploads using a temporary copy. Originals stay unchanged. Previously uploaded images are reused.",
@@ -179,7 +244,7 @@ export class OnceMarkedSettings extends PluginSettingTab {
             }
           }),
       );
-    new Setting(this.containerEl)
+    new Setting(container)
       .setName("Maximum image edge")
       .addDropdown((drop) => {
         maximumEdge = drop;
@@ -209,7 +274,7 @@ export class OnceMarkedSettings extends PluginSettingTab {
             }
           }),
       );
-    new Setting(this.containerEl)
+    new Setting(container)
       .setName("Image quality")
       .setDesc(
         "Custom quality and sizes above 1600 pixels require OnceMarked Pro. Free blogs use quality 80 and a maximum of 1600 pixels.",
@@ -219,7 +284,6 @@ export class OnceMarkedSettings extends PluginSettingTab {
         slider
           .setLimits(60, 95, 1)
           .setValue(Math.round(settings.images.quality * 100))
-          .setDynamicTooltip()
           .onChange(async (value) => {
             settings.images.quality = value / 100;
             await this.plugin.save();
@@ -241,11 +305,13 @@ export class OnceMarkedSettings extends PluginSettingTab {
             }
           }),
       );
+  }
+  private renderRecovery(container: HTMLElement): void {
     const pending = Object.values(this.plugin.data.media).filter(
       (record) => !record.url,
     ).length;
     if (pending)
-      new Setting(this.containerEl)
+      new Setting(container)
         .setName(`${pending} pending image upload(s)`)
         .setDesc(
           "Retry by publishing the same image with the same blog connection and image settings. Clearing recovery data can cause duplicate uploads.",
@@ -264,7 +330,7 @@ export class OnceMarkedSettings extends PluginSettingTab {
                   ))
                     if (!record.url) delete this.plugin.data.media[key];
                   await this.plugin.save();
-                  this.display();
+                  this.refreshSettings();
                 },
               ).open(),
             ),
