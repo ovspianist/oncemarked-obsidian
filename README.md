@@ -2,7 +2,7 @@
 
 Publish your Obsidian notes to your [OnceMarked](https://oncemarked.com) blog. Save drafts, publish updates, turn links to published notes into blog links, compress images, and insert OnceMarked variables.
 
-**Early release 0.1.3. Mobile support is not fully tested on iOS or Android.** Desktop publishing has been tested; device sync, interruption recovery and some permission/quota cases still need broader testing. Start with a test vault and keep a backup.
+**Early release 0.1.4. Mobile support is not fully tested on iOS or Android.** Desktop publishing has been tested; device sync, interruption recovery and some permission/quota cases still need broader testing. Start with a test vault and keep a backup.
 
 ## Account, payment and network access
 
@@ -12,15 +12,23 @@ The plugin connects to your configured OnceMarked Micropub endpoint to check per
 
 ## Install
 
-Requires Obsidian **1.11.4 or later** and a OnceMarked blog. Install [OnceMarked from the Community directory](https://community.obsidian.md/plugins/oncemarked), or find **OnceMarked** in **Settings → Community plugins → Browse**. Install and enable it, then follow the connection steps below (steps 4–6).
+Requires Obsidian **1.11.4 or later** and a OnceMarked blog. Install [OnceMarked from the Community directory](https://community.obsidian.md/plugins/oncemarked), or find **OnceMarked** in **Settings → Community plugins → Browse**. Install and enable it, then follow **Connect your blog** below.
 
 For manual installation:
 
 1. Download `main.js`, `manifest.json` and `styles.css` from this repository's Releases page, or build them below.
 2. Place the three files into `<vault>/.obsidian/plugins/oncemarked/`.
 3. Reload Obsidian and enable **OnceMarked** in **Settings → Community plugins**.
-4. In your OnceMarked blog's **Settings → Apps**, create a token with **Create drafts**, **Edit posts**, **Read post source** and **Upload images**. Add **Publish and edit live posts** for public publishing.
-5. In **Obsidian → Settings → OnceMarked**, add a blog using `https://oncemarked.com/micropub`. Select **Link → Add secret** to store its token in Obsidian Keychain. Each blog needs its own token.
+
+## Connect your blog
+
+The app token (the “secret” Obsidian asks for) comes from your **blog's settings on the OnceMarked website**, not your OM profile settings or Obsidian settings.
+
+1. Sign in at [OnceMarked](https://oncemarked.com) and open your **blog dashboard**. Create a blog first if you don't have one, or select the blog you want to publish to.
+2. Inside that blog's dashboard, open **Settings → Apps → Create token**. Give it a name such as “Obsidian”.
+3. Enable **Create drafts**, **Edit posts**, **Read post source** and **Upload images**. Also enable **Publish and edit live posts** if you want to publish publicly or update live posts. Create the token and copy it; keep it private.
+4. Switch back to **Obsidian → Settings → OnceMarked → Add blog**. Enter a name and use `https://oncemarked.com/micropub` as the Micropub endpoint.
+5. Under **App token**, select **Link → Add secret**. Give the secret a name, paste the copied token as its value, and select that secret for this blog. Obsidian Keychain stores the token; each blog needs its own token.
 6. Select **Test connection**, then **Refresh variables**.
 
 Mobile requires the plugin and a configured token on that device; installation and publishing there are not fully tested.

@@ -85,7 +85,7 @@ export class OnceMarkedSettings extends PluginSettingTab {
   }
   private renderConnections(container: HTMLElement): void {
     container.createEl("p", {
-      text: "Create a separate app token for each blog in OnceMarked → Settings → Apps. Enable create, update, read and media; also enable publish to publish or change live articles.",
+      text: "Get your app token on the OnceMarked website: open your blog dashboard, select the blog you want to publish to, then Settings → Apps → Create token. These are the blog's settings, not your OM profile settings. Create a separate token for each blog. Enable create, update, read and media; also enable publish to publish or change live articles.",
     });
     const settings = this.plugin.data.settings;
     for (const blog of settings.blogs) {
@@ -273,8 +273,8 @@ export class OnceMarkedSettings extends PluginSettingTab {
             }
           }),
       );
-    new Setting(container)
-      .setName("Image quality")
+    const qualitySetting = new Setting(container)
+      .setName(`Image quality: ${Math.round(settings.images.quality * 100)}`)
       .setDesc(
         "Custom quality and sizes above 1600 pixels require OnceMarked Pro. Free blogs use quality 80 and a maximum of 1600 pixels.",
       )
@@ -285,6 +285,7 @@ export class OnceMarkedSettings extends PluginSettingTab {
           .setValue(Math.round(settings.images.quality * 100))
           .onChange(async (value) => {
             settings.images.quality = value / 100;
+            qualitySetting.setName(`Image quality: ${value}`);
             await this.plugin.save();
           });
       })
@@ -297,6 +298,9 @@ export class OnceMarkedSettings extends PluginSettingTab {
           .onClick(async () => {
             settings.images.quality = imageDefaults.quality;
             quality.setValue(Math.round(imageDefaults.quality * 100));
+            qualitySetting.setName(
+              `Image quality: ${Math.round(imageDefaults.quality * 100)}`,
+            );
             try {
               await this.plugin.save();
             } catch (error) {
