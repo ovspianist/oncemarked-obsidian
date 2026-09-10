@@ -28,14 +28,7 @@ jobs:
       - name: Validate release version
         env:
           RELEASE_TAG: ${{ github.ref_name }}
-        run: |
-          node --input-type=module -e '
-            import fs from "node:fs";
-            const manifest = JSON.parse(fs.readFileSync("manifest.json", "utf8"));
-            const pkg = JSON.parse(fs.readFileSync("package.json", "utf8"));
-            if (manifest.version !== process.env.RELEASE_TAG || pkg.version !== manifest.version)
-              throw new Error("Tag, manifest and package versions must match");
-          '
+        run: pnpm check:release "$RELEASE_TAG"
       - run: pnpm verify
       - name: Attest installable assets
         uses: actions/attest@v4

@@ -17,6 +17,19 @@ pnpm verify
 pnpm test:images
 ```
 
+`pnpm install` configures the repository's version-controlled pre-push hook. The
+hook rejects dirty or stale branches, validates release metadata, and runs the
+checks above against the exact checked-out commit. Run `pnpm prepush:check` to
+exercise it before a push, or `pnpm hooks:install` to restore it after changing
+Git configuration.
+
+Feature branches may keep the current released version. A push to `main` that
+changes plugin files must increment the exact `x.y.z` version in `manifest.json`
+and `package.json` and add that version to `versions.json`. A release tag must
+exactly match those files without a `v` prefix. GitHub Actions reuses the same
+release metadata check and publishes only `main.js`, `manifest.json` and
+`styles.css`.
+
 The image integration checks require Chrome. Test publishing against a disposable
 blog and vault, never a reader's data. Changes must preserve explicit review
 before publication, local originals, secret storage and remote post identity.

@@ -11,6 +11,10 @@
     "format": "prettier --write .",
     "verify": "prettier --check . && pnpm typecheck && pnpm test && pnpm build",
     "test:images": "node scripts/check-images.mjs",
+    "check:release": "node scripts/release-policy.mjs",
+    "prepush:check": "node scripts/pre-push.mjs --check-current",
+    "hooks:install": "node scripts/install-hooks.mjs",
+    "prepare": "node scripts/install-hooks.mjs",
     "package": "pnpm verify && node scripts/package.mjs"
   },
   "devDependencies": {
