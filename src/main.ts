@@ -30,9 +30,16 @@ import {
   RelinkModal,
   FilePicker,
   errorMessage,
+  SyncModal,
 } from "./ui";
 export default class OnceMarkedPlugin extends Plugin {
-  data: SavedData = { settings: defaultSettings(), media: {}, history: {} };
+  data: SavedData = {
+    settings: defaultSettings(),
+    media: {},
+    history: {},
+    syncSnapshots: {},
+    syncRecoveries: {},
+  };
   notes!: NoteRepository;
   publisher!: Publisher;
   private externalSettingsChanged = false;
@@ -82,6 +89,8 @@ export default class OnceMarkedPlugin extends Plugin {
         this.data.settings.defaultBlog = id;
       }
     }
+    this.data.syncSnapshots ??= {};
+    this.data.syncRecoveries ??= {};
     this.data.settings.images = normaliseImageSettings(
       this.data.settings.images,
     );
@@ -127,13 +136,24 @@ export default class OnceMarkedPlugin extends Plugin {
     });
     this.registerEvent(
       this.app.workspace.on("file-menu", (menu, file) => {
-        if (file instanceof TFile && file.extension === "md")
+        if (file instanceof TFile && file.extension === "md") {
           menu.addItem((item) =>
             item
               .setTitle("Publish to OnceMarked")
               .setIcon("send")
               .onClick(() => this.openPublish(file)),
           );
+          const tracked =
+            this.app.metadataCache.getFileCache(file)?.frontmatter?.oncemarked
+              ?.posts;
+          if (tracked && typeof tracked === "object")
+            menu.addItem((item) =>
+              item
+                .setTitle("Sync from OnceMarked")
+                .setIcon("refresh-cw")
+                .onClick(() => this.openSyncForNote(file)),
+            );
+        }
       }),
     );
     this.noteCommand("recover", "Recover pending request", (file, blog) =>
@@ -152,6 +172,27 @@ export default class OnceMarkedPlugin extends Plugin {
       "relink",
       "Link to an existing OnceMarked post",
       (file, blog) => new RelinkModal(this, file, blog).open(),
+    );
+    this.addCommand({
+      id: "sync",
+      name: "Sync current note from OnceMarked",
+      checkCallback: (checking) => {
+        const file = this.app.workspace.getActiveFile();
+        if (file?.extension !== "md") return false;
+        if (!checking) this.openSyncForNote(file);
+        return true;
+      },
+    });
+    this.noteCommand(
+      "restore-before-sync",
+      "Restore note from before OnceMarked sync",
+      (file, blog) =>
+        new ConfirmModal(
+          this.app,
+          "Restore pre-sync note",
+          "This replaces the current note with the recovery copy saved immediately before conflict candidates were inserted.",
+          () => this.publisher.restoreBeforeSync(file, blog),
+        ).open(),
     );
     this.noteCommand(
       "clear-pending",
@@ -275,6 +316,32 @@ export default class OnceMarkedPlugin extends Plugin {
     void (async () => {
       if (view?.file === file) await view.save();
       new PublishModal(this, file).open();
+    })().catch((error) => new Notice(errorMessage(error)));
+  }
+  openSync(file: TFile, blog: BlogConnection): void {
+    const view = this.app.workspace.getActiveViewOfType(MarkdownView);
+    void (async () => {
+      if (view?.file === file) await view.save();
+      new SyncModal(this, file, blog).open();
+    })().catch((error) => new Notice(errorMessage(error)));
+  }
+  openSyncForNote(file: TFile): void {
+    const view = this.app.workspace.getActiveViewOfType(MarkdownView);
+    void (async () => {
+      if (view?.file === file) await view.save();
+      const { meta } = await this.notes.read(file);
+      const blogs = this.data.settings.blogs.filter(
+        (blog) => !!meta?.posts[blog.id],
+      );
+      if (!blogs.length) {
+        new Notice("This note is not linked to a configured OnceMarked blog.");
+        return;
+      }
+      if (blogs.length === 1) new SyncModal(this, file, blogs[0]!).open();
+      else
+        new BlogPicker(this.app, blogs, (blog) =>
+          new SyncModal(this, file, blog).open(),
+        ).open();
     })().catch((error) => new Notice(errorMessage(error)));
   }
   private noteCommand(

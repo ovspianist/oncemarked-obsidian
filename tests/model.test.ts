@@ -20,6 +20,12 @@ it("hashes source consistently regardless of property insertion order", async ()
   expect(await sourceFingerprint({ name: ["Title"], content: ["Body"] })).toBe(
     await sourceFingerprint({ content: ["Body"], name: ["Title"] }),
   );
+  expect(
+    await sourceFingerprint({
+      content: ["Body"],
+      "oncemarked-mediaBase": ["https://writer.example/"],
+    }),
+  ).toBe(await sourceFingerprint({ content: ["Body"] }));
 });
 it("matches OnceMarked field limits before sending", () => {
   expect(() =>

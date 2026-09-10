@@ -11,6 +11,9 @@ export function metadata(source: string): {
   const properties = value as Record<string, unknown>;
   return { properties, meta: readMeta(properties.oncemarked) };
 }
+export function noteBody(source: string): string {
+  return source.slice(getFrontMatterInfo(source).contentStart);
+}
 export class NoteRepository {
   constructor(
     readonly app: App,
@@ -93,6 +96,22 @@ export class NoteRepository {
       meta: structuredClone(meta),
     };
     await this.save();
+  }
+  async replaceBody(
+    file: TFile,
+    expectedSource: string,
+    body: string,
+  ): Promise<string> {
+    let changed = false;
+    const result = await this.app.vault.process(file, (source) => {
+      if (source !== expectedSource)
+        throw new Error("The note changed after sync review. Review again.");
+      changed = true;
+      const info = getFrontMatterInfo(source);
+      return source.slice(0, info.contentStart) + body;
+    });
+    if (!changed) throw new Error("Could not update the note.");
+    return result;
   }
   async rebuild(): Promise<void> {
     const entries = await this.all();

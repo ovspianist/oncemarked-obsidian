@@ -19,6 +19,18 @@
 .om-error {
   color: var(--text-error);
 }
+.om-sync-meta {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: var(--size-4-1) var(--size-4-3);
+}
+.om-sync-meta dt {
+  color: var(--text-muted);
+}
+.om-sync-meta dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
 .om-form .setting-item-control {
   flex-wrap: wrap;
 }

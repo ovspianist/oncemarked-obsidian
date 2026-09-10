@@ -39,6 +39,11 @@ function harness() {
         return contents.get(f.path)!;
       },
       readBinary: async () => binary.buffer,
+      process: async (f: TFile, update: (source: string) => string) => {
+        const next = update(contents.get(f.path)!);
+        contents.set(f.path, next);
+        return next;
+      },
     },
     fileManager: {
       processFrontMatter: async (
@@ -76,6 +81,7 @@ function harness() {
   const save = vi.fn(async () => {});
   const notes = new NoteRepository(app, data, save);
   let remote: Properties = {};
+  let revision = 0;
   let loseResponse = false;
   let creates = 0,
     updates = 0,
@@ -101,7 +107,19 @@ function harness() {
                 },
               },
             })
-          : response(200, { properties: remote });
+          : response(200, {
+              properties: remote,
+              oncemarked: {
+                sourceUrl:
+                  "https://oncemarked.com/blogs/entries/12345678-1234-4123-8123-123456789012",
+                url:
+                  remote["post-status"]?.[0] === "published"
+                    ? "https://author.example/my-post"
+                    : "https://oncemarked.com/blogs/entries/12345678-1234-4123-8123-123456789012?blog=blog",
+                revision: String(revision),
+                mediaBase: "https://author.example/",
+              },
+            });
       const key = request.headers["Idempotency-Key"]!;
       if (replays.has(key)) return replays.get(key)!;
       let result: HttpResponse;
@@ -128,6 +146,7 @@ function harness() {
           creates++;
           remote = body.properties!;
         }
+        revision++;
         const published = remote["post-status"]?.[0] === "published";
         result = response(
           body.action === "update" && !published ? 204 : 201,
@@ -165,6 +184,7 @@ function harness() {
     remote: () => remote,
     setRemote: (value: Properties) => {
       remote = value;
+      revision++;
     },
     lose: () => {
       loseResponse = true;
@@ -372,5 +392,137 @@ describe("publishing lifecycle", () => {
     );
     expect(h.counts().uploads).toBe(1);
     expect(h.counts().creates).toBe(1);
+  });
+
+  it("pulls a remote-only edit into the original note", async () => {
+    const h = harness();
+    await h.publisher.publish(
+      h.file,
+      h.blog,
+      await h.publisher.review(h.file, h.blog, input),
+      false,
+      () => {},
+    );
+    h.setRemote({
+      ...h.remote(),
+      name: ["Web title"],
+      content: ["# Hello\n\nChanged on OnceMarked."],
+    });
+    const review = await h.publisher.syncReview(h.file, h.blog);
+    expect(review.state).toBe("remote-ahead");
+    await h.publisher.applySync(h.file, h.blog, review);
+    const note = await h.notes.read(h.file);
+    expect(note.source).toContain("Changed on OnceMarked.");
+    expect(note.meta?.posts.blog?.title).toBe("Web title");
+    expect(h.data.syncSnapshots?.[`${note.meta!.id}:blog`]).toBeTruthy();
+  });
+
+  it("inserts localized conflict candidates and blocks publishing them", async () => {
+    const h = harness();
+    await h.publisher.publish(
+      h.file,
+      h.blog,
+      await h.publisher.review(h.file, h.blog, input),
+      false,
+      () => {},
+    );
+    h.contents.set(
+      h.file.path,
+      h.contents.get(h.file.path)!.replace("Body.", "Local body."),
+    );
+    h.setRemote({
+      ...h.remote(),
+      content: ["# Hello\n\nRemote body."],
+    });
+    const review = await h.publisher.syncReview(h.file, h.blog);
+    expect(review.state).toBe("conflict");
+    expect(review.conflicts).toBe(1);
+    await h.publisher.applySync(h.file, h.blog, review);
+    expect(h.contents.get(h.file.path)).toContain("<<<<<<< Obsidian");
+    expect(h.contents.get(h.file.path)).toContain("Local body.");
+    expect(h.contents.get(h.file.path)).toContain("Remote body.");
+    await expect(h.publisher.review(h.file, h.blog, input)).rejects.toThrow(
+      "conflict markers",
+    );
+    await h.publisher.restoreBeforeSync(h.file, h.blog);
+    expect(h.contents.get(h.file.path)).toContain("Local body.");
+    expect(h.contents.get(h.file.path)).not.toContain("<<<<<<<");
+  });
+
+  it("merges independent local and remote edits without markers", async () => {
+    const h = harness();
+    h.contents.set(h.file.path, "First.\n\nSecond.");
+    await h.publisher.publish(
+      h.file,
+      h.blog,
+      await h.publisher.review(h.file, h.blog, input),
+      false,
+      () => {},
+    );
+    h.contents.set(
+      h.file.path,
+      h.contents.get(h.file.path)!.replace("First.", "Local first."),
+    );
+    h.setRemote({ ...h.remote(), content: ["First.\n\nRemote second."] });
+    const review = await h.publisher.syncReview(h.file, h.blog);
+    expect(review.state).toBe("merged");
+    expect(review.conflicts).toBe(0);
+    await h.publisher.applySync(h.file, h.blog, review);
+    expect(h.contents.get(h.file.path)).toContain("Local first.");
+    expect(h.contents.get(h.file.path)).toContain("Remote second.");
+  });
+
+  it("round-trips OnceMarked-hosted images without another upload", async () => {
+    const h = harness();
+    await h.publisher.publish(
+      h.file,
+      h.blog,
+      await h.publisher.review(h.file, h.blog, input),
+      false,
+      () => {},
+    );
+    h.setRemote({
+      ...h.remote(),
+      content: [
+        "Image\n\n![Alt](/__media/12345678-1234-4123-8123-123456789012.webp)",
+      ],
+    });
+    const sync = await h.publisher.syncReview(h.file, h.blog);
+    expect(sync.markdown).toContain(
+      "https://author.example/__media/12345678-1234-4123-8123-123456789012.webp",
+    );
+    await h.publisher.applySync(h.file, h.blog, sync);
+    const publish = await h.publisher.review(h.file, h.blog, input);
+    expect(publish.prepared.issues).toEqual([]);
+    expect(publish.prepared.markdown).toContain(
+      "/__media/12345678-1234-4123-8123-123456789012.webp",
+    );
+    expect(publish.images.size).toBe(0);
+  });
+
+  it("preserves Obsidian-native body syntax for a remote metadata-only edit", async () => {
+    const h = harness();
+    const target = new TFile("Target.md");
+    h.files.push(target);
+    h.contents.set(target.path, "Target");
+    h.contents.set(h.file.path, "Read [[Target]].");
+    await h.publisher.publish(
+      h.file,
+      h.blog,
+      await h.publisher.review(h.file, h.blog, {
+        ...input,
+        plainUnpublished: true,
+      }),
+      false,
+      () => {},
+    );
+    h.setRemote({ ...h.remote(), name: ["Changed on the website"] });
+    const sync = await h.publisher.syncReview(h.file, h.blog);
+    expect(sync.state).toBe("remote-ahead");
+    await h.publisher.applySync(h.file, h.blog, sync);
+    expect(h.contents.get(h.file.path)).toContain("[[Target]]");
+    expect((await h.notes.read(h.file)).meta?.posts.blog?.title).toBe(
+      "Changed on the website",
+    );
   });
 });

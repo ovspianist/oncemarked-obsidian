@@ -343,14 +343,24 @@ export function replaceImagePaths(
   source: string,
   replacements: ReadonlyMap<string, string>,
 ): string {
+  return mapImagePaths(source, (value) => replacements.get(value) ?? value);
+}
+
+export function mapImagePaths(
+  source: string,
+  replacement: (path: string) => string,
+): string {
   const patches: { from: number; to: number; text: string }[] = [];
   walk(parseMarkdown(source), (node) => {
-    if (node.type === "image" && replacements.has(node.url))
+    if (node.type === "image") {
+      const value = replacement(node.url);
+      if (value === node.url) return;
       patches.push({
         from: start(node),
         to: end(node),
-        text: `![${(node.alt ?? "").replace(/[[\]\\\r\n]/g, " ")}](${replacements.get(node.url)!})`,
+        text: `![${(node.alt ?? "").replace(/[\[\]\\\r\n]/g, " ")}](${value})`,
       });
+    }
   });
   let result = source;
   for (const item of patches.sort((a, b) => b.from - a.from))

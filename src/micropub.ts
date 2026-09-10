@@ -180,7 +180,7 @@ export class MicropubClient {
       throw new Error("OnceMarked returned invalid post properties.");
     const properties = data.properties as Properties;
     if (object(data.oncemarked)) {
-      for (const field of ["sourceUrl", "url"] as const) {
+      for (const field of ["sourceUrl", "url", "mediaBase"] as const) {
         const value = data.oncemarked[field];
         if (typeof value !== "string") continue;
         const address = new URL(value);
@@ -196,6 +196,11 @@ export class MicropubClient {
             !/^\/blogs\/entries\/[a-f0-9-]{36}$/.test(address.pathname))
         )
           throw new Error("OnceMarked returned an invalid stable address.");
+        if (
+          field === "mediaBase" &&
+          (address.pathname !== "/" || address.search || address.hash)
+        )
+          throw new Error("OnceMarked returned an invalid media address.");
         properties[`oncemarked-${field}`] = [address.href];
       }
     }

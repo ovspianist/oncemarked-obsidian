@@ -4,6 +4,7 @@ import { MicropubClient, MicropubError, type Properties } from "./micropub";
 import {
   prepareMarkdown,
   replaceImagePaths,
+  mapImagePaths,
   decodePath,
   type LinkTarget,
   type PreparedMarkdown,
@@ -16,6 +17,7 @@ import {
   type BlogConnection,
   type SavedData,
   type Binding,
+  syncKey,
 } from "./model";
 import {
   fromBase64,
@@ -24,6 +26,8 @@ import {
   toBase64,
   MAX_IMAGE_BYTES,
 } from "./images";
+import { noteBody } from "./repository";
+import { hasConflictMarkers, mergeMarkdown, twoWayConflict } from "./sync";
 export interface PublishInput {
   title: string;
   slug: string;
@@ -43,8 +47,77 @@ export interface Review {
   input: PublishInput;
   blogId: string;
 }
+export type SyncState =
+  "up-to-date" | "local-ahead" | "remote-ahead" | "merged" | "conflict";
+export interface SyncReview {
+  source: string;
+  noteId: string;
+  blogId: string;
+  remote: Properties;
+  remoteFingerprint: string;
+  remoteBody: string;
+  markdown: string;
+  conflicts: number;
+  state: SyncState;
+  legacy: boolean;
+  metadataChanged: boolean;
+}
 const textProperty = (data: Properties, key: string): string =>
   typeof data[key]?.[0] === "string" ? data[key][0] : "";
+
+const mediaPattern =
+  /^\/__media\/[a-f\d]{8}(?:-[a-f\d]{4}){3}-[a-f\d]{12}\.webp$/i;
+
+function mediaBase(source: Properties, binding: Binding): string | undefined {
+  const explicit = textProperty(source, "oncemarked-mediaBase");
+  if (explicit) return new URL(explicit).origin;
+  const current = textProperty(source, "oncemarked-url") || binding.url;
+  const address = new URL(current);
+  return address.hostname === "oncemarked.com" &&
+    address.pathname.startsWith("/blogs/entries/")
+    ? undefined
+    : address.origin;
+}
+
+function remoteBody(source: Properties, binding: Binding): string {
+  const base = mediaBase(source, binding);
+  return mapImagePaths(textProperty(source, "content"), (path) =>
+    base && mediaPattern.test(path) ? base + path : path,
+  );
+}
+
+function remoteMetadataChanged(source: Properties, binding: Binding): boolean {
+  const tags = (source.category ?? []).filter(
+    (value): value is string => typeof value === "string",
+  );
+  return (
+    textProperty(source, "name") !== (binding.title ?? "") ||
+    textProperty(source, "mp-slug") !== (binding.slug ?? "") ||
+    textProperty(source, "post-status") !== binding.state ||
+    JSON.stringify(tags) !== JSON.stringify(binding.tags ?? []) ||
+    (textProperty(source, "oncemarked-url") || binding.url) !== binding.url
+  );
+}
+
+function refreshBinding(
+  binding: Binding,
+  source: Properties,
+  baseline: string,
+): void {
+  const state = textProperty(source, "post-status");
+  if (state !== "draft" && state !== "published")
+    throw new Error("The remote post returned an unknown publication state.");
+  binding.url = textProperty(source, "oncemarked-url") || binding.url;
+  binding.sourceUrl =
+    textProperty(source, "oncemarked-sourceUrl") || binding.sourceUrl;
+  binding.state = state;
+  binding.baseline = baseline;
+  binding.tags = (source.category ?? []).filter(
+    (value): value is string => typeof value === "string",
+  );
+  binding.title = textProperty(source, "name");
+  binding.slug = textProperty(source, "mp-slug");
+}
 
 export class Publisher {
   private readonly busy = new Set<string>();
@@ -83,6 +156,13 @@ export class Publisher {
           "A previous request needs recovery. Use “Recover pending request” first.",
         );
       const { source } = await this.notes.read(file);
+      if (
+        this.data.syncRecoveries?.[syncKey(meta.id, blog.id)] &&
+        hasConflictMarkers(noteBody(source))
+      )
+        throw new Error(
+          "Resolve all OnceMarked conflict markers before publishing.",
+        );
       const { client } = this.connect(blog);
       const binding = meta.posts[blog.id];
       const remote = binding
@@ -161,6 +241,17 @@ export class Publisher {
         },
         image: async (path) => {
           if (/^\/__media\/[a-f\d-]+\.webp$/i.test(path)) return path;
+          if (/^https?:/i.test(path) && binding && remote) {
+            const address = new URL(path);
+            const base = mediaBase(remote, binding);
+            if (
+              base === address.origin &&
+              mediaPattern.test(address.pathname) &&
+              !address.search &&
+              !address.hash
+            )
+              return address.pathname;
+          }
           if (/^[a-z][\w+.-]*:|^\/\//i.test(path))
             throw new Error(
               "External images must be saved in your vault before publishing.",
@@ -204,6 +295,158 @@ export class Publisher {
         input: structuredClone(input),
         blogId: blog.id,
       };
+    });
+  }
+  async syncReview(file: TFile, blog: BlogConnection): Promise<SyncReview> {
+    return this.locked(file, async () => {
+      const current = await this.notes.read(file);
+      const meta = current.meta;
+      const binding = meta?.posts[blog.id];
+      if (!meta || !binding)
+        throw new Error("This note is not linked to the selected blog.");
+      await this.notes.assertUnique(file, meta.id);
+      if (meta.pending[blog.id])
+        throw new Error(
+          "A previous request needs recovery before this note can sync.",
+        );
+      if (this.data.syncRecoveries?.[syncKey(meta.id, blog.id)])
+        throw new Error(
+          "This note already has an unresolved sync. Resolve and publish it, or restore the pre-sync note.",
+        );
+      const remote = await this.connect(blog).client.source(
+        binding.sourceUrl ?? binding.url,
+      );
+      const remoteFingerprint = await sourceFingerprint(remote);
+      const local = noteBody(current.source);
+      const fromRemote = remoteBody(remote, binding);
+      const key = syncKey(meta.id, blog.id);
+      const snapshot = this.data.syncSnapshots?.[key];
+      const usableSnapshot =
+        snapshot && snapshot.fingerprint === binding.baseline
+          ? snapshot
+          : undefined;
+      const remoteChanged = remoteFingerprint !== binding.baseline;
+      const localChanged = usableSnapshot
+        ? (await digest(local)) !== usableSnapshot.localFingerprint
+        : local !== fromRemote;
+      let state: SyncState;
+      let markdown = local;
+      let conflicts = 0;
+      if (!remoteChanged) state = localChanged ? "local-ahead" : "up-to-date";
+      else if (usableSnapshot) {
+        if (fromRemote === usableSnapshot.remote) {
+          state = localChanged ? "merged" : "remote-ahead";
+        } else {
+          const merged = mergeMarkdown(
+            usableSnapshot.remote,
+            local,
+            fromRemote,
+          );
+          markdown = merged.markdown;
+          conflicts = merged.conflicts;
+          state = conflicts
+            ? "conflict"
+            : localChanged
+              ? "merged"
+              : "remote-ahead";
+        }
+      } else if (!localChanged) {
+        state = "remote-ahead";
+        markdown = fromRemote;
+      } else {
+        const merged = twoWayConflict(local, fromRemote);
+        markdown = merged.markdown;
+        conflicts = merged.conflicts;
+        state = conflicts ? "conflict" : "merged";
+      }
+      return {
+        source: current.source,
+        noteId: meta.id,
+        blogId: blog.id,
+        remote,
+        remoteFingerprint,
+        remoteBody: fromRemote,
+        markdown,
+        conflicts,
+        state,
+        legacy: !usableSnapshot,
+        metadataChanged: remoteMetadataChanged(remote, binding),
+      };
+    });
+  }
+  async applySync(
+    file: TFile,
+    blog: BlogConnection,
+    review: SyncReview,
+  ): Promise<void> {
+    return this.locked(file, async () => {
+      if (review.blogId !== blog.id)
+        throw new Error("Sync destination changed. Review again.");
+      const current = await this.notes.read(file);
+      const binding = current.meta?.posts[blog.id];
+      if (
+        current.source !== review.source ||
+        current.meta?.id !== review.noteId ||
+        !binding
+      )
+        throw new Error("The note changed after sync review. Review again.");
+      const remote = await this.connect(blog).client.source(
+        binding.sourceUrl ?? binding.url,
+      );
+      if ((await sourceFingerprint(remote)) !== review.remoteFingerprint)
+        throw new Error(
+          "The OnceMarked post changed after sync review. Review again.",
+        );
+      const key = syncKey(review.noteId, blog.id);
+      this.data.syncRecoveries ??= {};
+      this.data.syncSnapshots ??= {};
+      const writesBody = review.markdown !== noteBody(current.source);
+      if (writesBody) {
+        this.data.syncRecoveries[key] = {
+          created: Date.now(),
+          source: current.source,
+          snapshot: this.data.syncSnapshots[key]
+            ? structuredClone(this.data.syncSnapshots[key])
+            : undefined,
+        };
+        await this.save();
+        await this.notes.replaceBody(file, current.source, review.markdown);
+      }
+      await this.notes.mutate(file, review.noteId, (note) => {
+        const post = note.posts[blog.id];
+        if (!post) throw new Error("The post association changed.");
+        refreshBinding(post, remote, review.remoteFingerprint);
+        note.lastBlog = blog.id;
+      });
+      this.data.syncSnapshots[key] = {
+        localFingerprint: await digest(
+          ["merged", "conflict", "local-ahead"].includes(review.state)
+            ? review.remoteBody
+            : review.markdown,
+        ),
+        remote: review.remoteBody,
+        fingerprint: review.remoteFingerprint,
+      };
+      if (!writesBody || ["remote-ahead", "up-to-date"].includes(review.state))
+        delete this.data.syncRecoveries[key];
+      await this.save();
+    });
+  }
+  async restoreBeforeSync(file: TFile, blog: BlogConnection): Promise<void> {
+    return this.locked(file, async () => {
+      const current = await this.notes.read(file);
+      if (!current.meta)
+        throw new Error("This note has no OnceMarked identity.");
+      const key = syncKey(current.meta.id, blog.id);
+      const recovery = this.data.syncRecoveries?.[key];
+      if (!recovery) throw new Error("No pre-sync recovery is available.");
+      await this.notes.app.vault.process(file, () => recovery.source);
+      const restored = await this.notes.read(file);
+      if (restored.meta) await this.notes.remember(file, restored.meta);
+      if (recovery.snapshot) this.data.syncSnapshots![key] = recovery.snapshot;
+      else delete this.data.syncSnapshots?.[key];
+      delete this.data.syncRecoveries![key];
+      await this.save();
     });
   }
   async publish(
@@ -424,6 +667,19 @@ export class Publisher {
       note.lastBlog = blog.id;
       delete note.pending[blog.id];
     });
+    const key = syncKey(meta.id, blog.id);
+    this.data.syncSnapshots ??= {};
+    this.data.syncRecoveries ??= {};
+    if (binding.baseline) {
+      const saved = await this.notes.read(file);
+      this.data.syncSnapshots[key] = {
+        localFingerprint: await digest(noteBody(saved.source)),
+        remote: remoteBody(source, binding),
+        fingerprint: binding.baseline,
+      };
+    } else delete this.data.syncSnapshots[key];
+    delete this.data.syncRecoveries[key];
+    await this.save();
     return binding.url;
   }
   async relink(file: TFile, blog: BlogConnection, url: string): Promise<void> {
@@ -453,6 +709,10 @@ export class Publisher {
         note.lastBlog = blog.id;
         delete note.pending[blog.id];
       });
+      const key = syncKey(meta.id, blog.id);
+      delete this.data.syncSnapshots?.[key];
+      delete this.data.syncRecoveries?.[key];
+      await this.save();
       // Empty baseline intentionally requires remote content review before first replacement.
     });
   }

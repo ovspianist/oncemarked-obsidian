@@ -53,11 +53,27 @@ export interface MediaRecord {
   bytes?: string;
   url?: string;
 }
+export interface SyncSnapshot {
+  /** Avoid duplicating the raw vault body; only the remote merge base needs content. */
+  localFingerprint: string;
+  /** OnceMarked Markdown made usable inside the vault. */
+  remote: string;
+  fingerprint: string;
+}
+export interface SyncRecovery {
+  created: number;
+  source: string;
+  snapshot?: SyncSnapshot;
+}
 export interface SavedData {
   settings: Settings;
   media: Record<string, MediaRecord>;
   history: Record<string, { path: string; meta: NoteMeta }>;
+  syncSnapshots?: Record<string, SyncSnapshot>;
+  syncRecoveries?: Record<string, SyncRecovery>;
 }
+export const syncKey = (noteId: string, blogId: string): string =>
+  `${noteId}:${blogId}`;
 export const defaultSettings = (): Settings => ({
   blogs: [],
   defaultBlog: "",
@@ -129,8 +145,11 @@ export function stableJson(value: unknown): string {
     );
   return JSON.stringify(value) ?? "null";
 }
-export const sourceFingerprint = (properties: Properties): Promise<string> =>
-  digest(stableJson(properties));
+export const sourceFingerprint = (properties: Properties): Promise<string> => {
+  const { "oncemarked-mediaBase": _mediaBase, ...identityAndContent } =
+    properties;
+  return digest(stableJson(identityAndContent));
+};
 export function checkRecovery(
   pending: { created: number; scope: string },
   scope: string,

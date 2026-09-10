@@ -202,6 +202,7 @@ it("retains stable source identity and sends the reviewed revision", async () =>
         oncemarked: {
           sourceUrl: stable,
           url: "https://writer.example/new-slug",
+          mediaBase: "https://writer.example/",
           revision,
         },
       },
@@ -210,6 +211,7 @@ it("retains stable source identity and sends the reviewed revision", async () =>
   expect(await client.source("https://writer.example/old-slug")).toMatchObject({
     "oncemarked-sourceUrl": [stable],
     "oncemarked-url": ["https://writer.example/new-slug"],
+    "oncemarked-mediaBase": ["https://writer.example/"],
     "oncemarked-revision": [revision],
   });
   transport.mockResolvedValue(

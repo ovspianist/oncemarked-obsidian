@@ -39,6 +39,14 @@ Open a note and run **OnceMarked: Publish or update current note**. Choose the b
 
 Links to known published notes become working blog links. Unpublished or unresolved links require correction or explicit plain-text fallback. Renaming or moving a note preserves its publication identity; keep its `oncemarked` properties intact. Local deletion does not delete the remote post. Review remote changes before replacing them.
 
+### Manual sync from OnceMarked
+
+For a linked note, run **OnceMarked: Sync current note from OnceMarked** and choose its blog. The plugin compares the note, the current OnceMarked post and their last synchronized version. A remote-only edit can update the note directly. Independent edits on both sides are combined automatically. Overlapping edits are inserted into the note between standard `<<<<<<< Obsidian`, `=======` and `>>>>>>> OnceMarked` conflict markers.
+
+Edit the candidates in place and remove all marker lines before publishing. Publishing is blocked while markers remain. **Restore note from before OnceMarked sync** restores the recovery copy retained while a merge is unresolved. Successful publication clears that recovery state.
+
+The sync refreshes title, slug, tags, publication status and the current post address without renaming the note or rewriting unrelated frontmatter. Hosted OnceMarked images use full blog URLs inside Obsidian and become portable media paths again when republished. Older associations without a common snapshot show both complete bodies for their first overlapping conflict; a successful publish or sync enables localized three-way merges afterward. Synchronization only runs when you invoke the command.
+
 Image optimisation is configured globally and preserves originals. Defaults are **1600px / quality 80**. Larger sizes and custom quality require OnceMarked Pro. Local JPEG, PNG and still WebP are supported, up to 12 MiB and 40 megapixels; convert HEIC or animated images first. Insert variables with the command or by typing `{{`.
 
 Update through **Settings → Community plugins**. For manual installations, close Obsidian and replace only the three plugin files. Preserve `data.json` and note properties. For interrupted operations, check the website before using **Recover pending request** or clearing recovery data. Avoid simultaneous publishing from multiple devices during the beta.

@@ -4,10 +4,11 @@ import {
   FuzzySuggestModal,
   type App,
   type TFile,
+  Notice,
 } from "obsidian";
 import type OnceMarkedPlugin from "./main";
 import type { BlogConnection } from "./model";
-import type { PublishInput, Review } from "./publisher";
+import type { PublishInput, Review, SyncReview } from "./publisher";
 export function errorMessage(error: unknown): string {
   // Transport failures may carry request details; show only our controlled errors.
   return error instanceof Error &&
@@ -281,6 +282,112 @@ export class PublishModal extends Modal {
         });
     };
     load();
+  }
+}
+export class SyncModal extends Modal {
+  constructor(
+    private readonly plugin: OnceMarkedPlugin,
+    private readonly file: TFile,
+    private readonly blog: BlogConnection,
+  ) {
+    super(plugin.app);
+  }
+  onOpen(): void {
+    this.titleEl.setText("Sync from OnceMarked");
+    const status = this.contentEl.createEl("p", {
+      text: "Comparing the note with OnceMarked…",
+      attr: { role: "status", "aria-live": "polite" },
+    });
+    void this.plugin.publisher
+      .syncReview(this.file, this.blog)
+      .then((review) => this.render(review, status))
+      .catch((error) => status.setText(errorMessage(error)));
+  }
+  private render(review: SyncReview, status: HTMLParagraphElement): void {
+    const descriptions: Record<SyncReview["state"], string> = {
+      "up-to-date": "The note and OnceMarked post are up to date.",
+      "local-ahead": "This note has changes that have not been published.",
+      "remote-ahead":
+        "The OnceMarked post changed. It can update this note safely.",
+      merged:
+        "Both versions changed in different places. They can be merged without conflict markers.",
+      conflict: `${review.conflicts} overlapping change${review.conflicts === 1 ? "" : "s"} need resolution in the note.`,
+    };
+    status.setText(descriptions[review.state]);
+    if (review.metadataChanged) {
+      const details = this.contentEl.createEl("details");
+      details.createEl("summary", { text: "OnceMarked publishing details" });
+      const list = details.createEl("dl", { cls: "om-sync-meta" });
+      for (const [label, value] of [
+        ["Title", String(review.remote.name?.[0] ?? "")],
+        ["Slug", String(review.remote["mp-slug"]?.[0] ?? "")],
+        ["Status", String(review.remote["post-status"]?.[0] ?? "")],
+        ["Tags", (review.remote.category ?? []).join(", ")],
+      ]) {
+        list.createEl("dt", { text: label });
+        list.createEl("dd", { text: value });
+      }
+    }
+    if (["remote-ahead", "merged", "conflict"].includes(review.state)) {
+      const preview = this.contentEl.createEl("details");
+      preview.createEl("summary", {
+        text:
+          review.state === "conflict"
+            ? "Preview conflict candidates"
+            : "Preview updated note",
+      });
+      preview.createEl("pre", { text: review.markdown, cls: "om-source" });
+    }
+    if (review.legacy)
+      this.contentEl.createEl("p", {
+        text:
+          review.state === "conflict"
+            ? "This older association has no common snapshot, so the first conflict contains both complete bodies. Future conflicts will be localized."
+            : "Saving this comparison enables precise three-way merges for future edits.",
+      });
+    const actionable =
+      !["up-to-date", "local-ahead"].includes(review.state) || review.legacy;
+    if (!actionable) return;
+    const labels: Record<SyncReview["state"], string> = {
+      "up-to-date": review.legacy ? "Enable three-way sync" : "Done",
+      "local-ahead": "Enable three-way sync",
+      "remote-ahead": "Update note from OnceMarked",
+      merged: "Merge changes into note",
+      conflict: "Insert conflict candidates",
+    };
+    new Setting(this.contentEl)
+      .addButton((button) =>
+        button.setButtonText("Cancel").onClick(() => this.close()),
+      )
+      .addButton((button) =>
+        button
+          .setButtonText(labels[review.state])
+          .setCta()
+          .onClick(async () => {
+            button.setDisabled(true);
+            try {
+              await this.plugin.publisher.applySync(
+                this.file,
+                this.blog,
+                review,
+              );
+              this.close();
+              new Notice(
+                review.state === "conflict"
+                  ? "Conflict candidates inserted. Delete the unwanted lines and all three marker lines before publishing."
+                  : review.state === "merged"
+                    ? "OnceMarked changes merged. Publish when the combined note is ready."
+                    : review.state === "remote-ahead"
+                      ? "Note updated from OnceMarked."
+                      : "Three-way sync baseline saved.",
+                10000,
+              );
+            } catch (error) {
+              status.setText(errorMessage(error));
+              button.setDisabled(false);
+            }
+          }),
+      );
   }
 }
 export class FilePicker extends FuzzySuggestModal<TFile> {
